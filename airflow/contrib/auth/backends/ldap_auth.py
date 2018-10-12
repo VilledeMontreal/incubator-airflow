@@ -130,61 +130,66 @@ class LdapUser(models.User):
         self.ldap_groups = []
         self.ldap_custom_groups = []
 
-        # Load and cache superuser and data_profiler settings.
-        conn = get_ldap_connection(configuration.conf.get("ldap", "bind_user"),
-                                   configuration.conf.get("ldap", "bind_password"))
+        owner_mode = configuration.conf.get("core", "owner_mode")
 
-        superuser_filter = None
-        data_profiler_filter = None
-        try:
-            superuser_filter = configuration.conf.get("ldap", "superuser_filter")
-        except AirflowConfigException:
-            pass
+        if owner_mode == "ldapgroup":
+            # Load and cache superuser and data_profiler settings.
+            conn = get_ldap_connection(configuration.conf.get("ldap", "bind_user"),
+                                    configuration.conf.get("ldap", "bind_password"))
 
-        if not superuser_filter:
-            self.superuser = True
-            log.debug("Missing configuration for superuser settings or empty. Skipping.")
+            superuser_filter = None
+            data_profiler_filter = None
+            try:
+                superuser_filter = configuration.conf.get("ldap", "superuser_filter")
+            except AirflowConfigException:
+                pass
+
+            if not superuser_filter:
+                self.superuser = True
+                log.debug("Missing configuration for superuser settings or empty. Skipping.")
+            else:
+                self.superuser = group_contains_user(conn,
+                                                    configuration.conf.get("ldap", "basedn"),
+                                                    superuser_filter,
+                                                    configuration.conf.get("ldap",
+                                                                            "user_name_attr"),
+                                                    user.username)
+
+            try:
+                data_profiler_filter = configuration.conf.get("ldap", "data_profiler_filter")
+            except AirflowConfigException:
+                pass
+
+            if not data_profiler_filter:
+                self.data_profiler = True
+                log.debug("Missing configuration for data profiler settings or empty. "
+                        "Skipping.")
+            else:
+                self.data_profiler = group_contains_user(
+                    conn,
+                    configuration.conf.get("ldap", "basedn"),
+                    data_profiler_filter,
+                    configuration.conf.get("ldap",
+                                        "user_name_attr"),
+                    user.username
+                )
+
+            # Load the ldap group(s) a user belongs to
+            try:
+                self.ldap_groups = groups_user(
+                    conn,
+                    configuration.conf.get("ldap", "basedn"),
+                    configuration.conf.get("ldap", "user_filter"),
+                    configuration.conf.get("ldap", "user_name_attr"),
+                    user.username
+                )
+            except AirflowConfigException:
+                log.debug("Missing configuration for ldap settings. Skipping")
+        elif owner_mode == "custom-ldapgroup":
+            self.resolve_current_user_custom_group(conn)
         else:
-            self.superuser = group_contains_user(conn,
-                                                 configuration.conf.get("ldap", "basedn"),
-                                                 superuser_filter,
-                                                 configuration.conf.get("ldap",
-                                                                        "user_name_attr"),
-                                                 user.username)
+            raise AirflowConfigException("owner mode type is unknown, should be ldapgroup ou custom-ldapgroup")
 
-        try:
-            data_profiler_filter = configuration.conf.get("ldap", "data_profiler_filter")
-        except AirflowConfigException:
-            pass
-
-        if not data_profiler_filter:
-            self.data_profiler = True
-            log.debug("Missing configuration for data profiler settings or empty. "
-                      "Skipping.")
-        else:
-            self.data_profiler = group_contains_user(
-                conn,
-                configuration.conf.get("ldap", "basedn"),
-                data_profiler_filter,
-                configuration.conf.get("ldap",
-                                       "user_name_attr"),
-                user.username
-            )
-
-        # Load the ldap group(s) a user belongs to
-        try:
-            self.ldap_groups = groups_user(
-                conn,
-                configuration.conf.get("ldap", "basedn"),
-                configuration.conf.get("ldap", "user_filter"),
-                configuration.conf.get("ldap", "user_name_attr"),
-                user.username
-            )
-        except AirflowConfigException:
-            log.debug("Missing configuration for ldap settings. Skipping")
-
-
-        self.resolve_current_user_custom_group(conn)
 
 
 
@@ -327,6 +332,7 @@ class LdapUser(models.User):
                     log.info('User {} is member of superuser group:{}'.format(self.user.username, superuser_group))
                     self.superuser = True
                     self.data_profiler = True
+                    self.ldap_custom_groups.extend(entry.entry_attributes_as_dict['cn'])
                 else:
                     username_filter = "(?<=uid=){0}".format(self.user.username)
                     json_data = conn.response_to_json()
