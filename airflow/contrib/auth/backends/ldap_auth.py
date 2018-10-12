@@ -187,6 +187,7 @@ class LdapUser(models.User):
             except AirflowConfigException:
                 log.debug("Missing configuration for ldap settings. Skipping")
         elif owner_mode == "custom-ldapgroup":
+
             self.resolve_current_user_custom_group(conn)
         else:
             raise AirflowConfigException("owner mode type is unknown, should be ldapgroup ou custom-ldapgroup")
@@ -321,6 +322,7 @@ class LdapUser(models.User):
     def resolve_current_user_custom_group(self, conn):
         """ Resolve current user group according to custom ldap filters"""
 
+        log.info('IN HEREEEEEEEEEEEEEEE')
         search_base = configuration.conf.get("ldap", "basedn_group")
 
         superuser_group = configuration.conf.get("ldap", "superuser_group")
@@ -333,6 +335,7 @@ class LdapUser(models.User):
         self.superuser = False
         self.data_profiler = False
 
+        log.info(entries)
         if entries:
             for entry in entries:
                 if entry['cn'] == superuser_group:
