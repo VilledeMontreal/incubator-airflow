@@ -136,6 +136,7 @@ class LdapUser(models.User):
     def __init__(self, user):
         self.user = user
         self.ldap_groups = []
+        self.ldap_custom_groups = []
 
         # Load and cache superuser and data_profiler settings.
         conn = get_ldap_connection(configuration.conf.get("ldap", "bind_user"),
@@ -189,6 +190,11 @@ class LdapUser(models.User):
             )
         except AirflowConfigException:
             log.debug("Missing configuration for ldap settings. Skipping")
+
+
+        self.resolve_current_user_custom_group(conn)
+
+
 
     @staticmethod
     def try_login(username, password):
@@ -271,6 +277,77 @@ class LdapUser(models.User):
     def is_superuser(self):
         """Access all the things"""
         return self.superuser
+
+    def __define_custom_super_user_filter():
+        superuser_filter_attr = configuration.conf.get("ldap", "superuser_filter")
+        super_user_filter = "(&({0}))".format(superuser_filter_attr)
+
+        return super_user_filter
+
+    def __define_group_user_filter():
+        internal_user_type_filter = self.__define_custom_internal_user_type_filter()
+
+        internal_user_type_filter = self.__define_custom_external_user_type_filter()
+
+        group_user_filter = "(|{0}{1})".format(
+            internal_user_type_filter,
+            internal_user_type_filter
+        )
+
+        return group_user_filter
+
+    def __define_custom_internal_user_type_filter():
+
+        base_dn = configuration.conf.get("ldap", "basedn")
+        group_user_name_attr = configuration.conf.get("ldap", "group_user_name_attr")
+        group_internal_org_unit_attr = configuration.conf.get("ldap", "group_internal_org_unit_attr")
+
+        internal_user_type_filter ="({0}{1},{2},{3})".format(group_user_name_attr,
+                                                                self.user.username,
+                                                                group_internal_org_unit_attr,
+                                                                base_dn)
+
+        return internal_user_type_filter
+
+
+    def __define_custom_external_user_type_filter():
+        base_dn = configuration.conf.get("ldap", "basedn")
+        group_user_name_attr = configuration.conf.get("ldap", "group_user_name_attr")
+        group_external_org_unit_attr = configuration.conf.get("ldap", "group_external_org_unit_attr")
+
+        external_user_type_filter = "({0}{1},{2},{3})".format(group_user_name_attr,
+                                                                self.user.username,
+                                                                group_external_org_unit_attr,
+                                                                base_dn)
+
+        return external_user_type_filter
+
+    def resolve_current_user_custom_group(self, conn):
+        search_base = configuration.conf.get("ldap", "basedn_group")
+
+        group_user_filter = self.__define_group_user_filter()
+
+        conn.search(search_base, group_user_filter, attributes=ALL_ATTRIBUTES)
+        entries = conn.entries
+
+        self.superuser = False
+        self.data_profiler = False
+
+        if entries:
+            for entry in entries:
+                if entry['cn'] == superuser_group:
+                    log.info('User {} is member of superuser group:{}'.format(self.user.username, superuser_group))
+                    self.superuser = True
+                    self.data_profiler = True
+                else:
+                    username_filter = "(?<=uid=){0}".format(self.user.username)
+                    json_data = conn.response_to_json()
+                    user = re.findall(username_filter, json_data)[0]
+                    if user:
+                        log.info('User {} is member of user group:{}'.format(self.user.username, entry['cn']))
+                        self.ldap_custom_groups.extend(entry.entry_attributes_as_dict['cn'])
+        else:
+            log.debug('User {} is not part of any airflow group'.format(self.user.username))
 
 
 @login_manager.user_loader
