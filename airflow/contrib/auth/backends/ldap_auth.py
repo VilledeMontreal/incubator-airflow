@@ -187,7 +187,7 @@ class LdapUser(models.User):
             except AirflowConfigException:
                 log.debug("Missing configuration for ldap settings. Skipping")
         elif owner_mode == "custom-ldapgroup":
-            self.resolve_current_user_custom_group()
+            self.resolve_current_user_custom_group(conn)
         else:
             raise AirflowConfigException("owner mode type is unknown, should be ldapgroup ou custom-ldapgroup")
 
