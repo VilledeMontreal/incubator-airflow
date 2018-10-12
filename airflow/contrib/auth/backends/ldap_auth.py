@@ -278,13 +278,13 @@ class LdapUser(models.User):
         """Access all the things"""
         return self.superuser
 
-    def __define_custom_super_user_filter():
+    def __define_custom_super_user_filter(self):
         superuser_filter_attr = configuration.conf.get("ldap", "superuser_filter_attr")
         super_user_filter = "(&({0}))".format(superuser_filter_attr)
 
         return super_user_filter
 
-    def __define_group_user_filter():
+    def __define_group_user_filter(self):
         internal_user_type_filter = self.__define_custom_internal_user_type_filter()
 
         internal_user_type_filter = self.__define_custom_external_user_type_filter()
@@ -296,7 +296,7 @@ class LdapUser(models.User):
 
         return group_user_filter
 
-    def __define_custom_internal_user_type_filter():
+    def __define_custom_internal_user_type_filter(self):
 
         base_dn = configuration.conf.get("ldap", "basedn")
         group_user_name_attr = configuration.conf.get("ldap", "group_user_name_attr")
@@ -310,7 +310,7 @@ class LdapUser(models.User):
         return internal_user_type_filter
 
 
-    def __define_custom_external_user_type_filter():
+    def __define_custom_external_user_type_filter(self):
         base_dn = configuration.conf.get("ldap", "basedn")
         group_user_name_attr = configuration.conf.get("ldap", "group_user_name_attr")
         group_external_org_unit_attr = configuration.conf.get("ldap", "group_external_org_unit_attr")
