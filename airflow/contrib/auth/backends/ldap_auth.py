@@ -136,7 +136,9 @@ class LdapUser(models.User):
         conn = get_ldap_connection(configuration.conf.get("ldap", "bind_user"),
                                     configuration.conf.get("ldap", "bind_password"))
 
-        if owner_mode == "ldapgroup":
+        if owner_mode == "custom-ldapgroup":
+            self.resolve_current_user_custom_group(conn)
+        else:
             # Load and cache superuser and data_profiler settings.
             superuser_filter = None
             data_profiler_filter = None
@@ -186,14 +188,6 @@ class LdapUser(models.User):
                 )
             except AirflowConfigException:
                 log.debug("Missing configuration for ldap settings. Skipping")
-        elif owner_mode == "custom-ldapgroup":
-
-            self.resolve_current_user_custom_group(conn)
-        else:
-            raise AirflowConfigException("owner mode type is unknown, should be ldapgroup ou custom-ldapgroup")
-
-
-
 
     @staticmethod
     def try_login(username, password):
