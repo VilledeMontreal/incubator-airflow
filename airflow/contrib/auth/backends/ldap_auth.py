@@ -313,15 +313,11 @@ class LdapUser(models.User):
     def resolve_current_user_custom_group(self, conn):
         """ Resolve current user group according to custom ldap filters"""
 
-        log.info('IN HEREEEEEEEEEEEEEEE')
         search_base = configuration.conf.get("ldap", "basedn_group")
 
         superuser_group = configuration.conf.get("ldap", "superuser_group")
 
         group_user_filter = self.__define_group_user_filter()
-
-        log.info(superuser_group)
-        log.info(group_user_filter)
 
         conn.search(search_base, group_user_filter, attributes=ALL_ATTRIBUTES)
         entries = conn.entries
