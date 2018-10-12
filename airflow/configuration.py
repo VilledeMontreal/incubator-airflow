@@ -183,7 +183,7 @@ class AirflowConfigParser(ConfigParser):
 
         elif (
             self.getboolean("webserver", "authenticate") and
-            self.get("webserver", "owner_mode") not in ['user', 'ldapgroup']
+            self.get("webserver", "owner_mode") not in ['user', 'ldapgroup', 'custom-ldapgroup']
         ):
             raise AirflowConfigException(
                 "error: owner_mode option should be either "
@@ -191,7 +191,8 @@ class AirflowConfigParser(ConfigParser):
 
         elif (
             self.getboolean("webserver", "authenticate") and
-            self.get("webserver", "owner_mode").lower() == 'ldapgroup' and
+            (self.get("webserver", "owner_mode").lower() == 'ldapgroup' or
+            self.get("webserver", "owner_mode").lower() == 'custom-ldapgroup') and
             self.get("webserver", "auth_backend") != (
                 'airflow.contrib.auth.backends.ldap_auth')
         ):
