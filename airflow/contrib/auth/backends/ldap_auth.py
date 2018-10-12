@@ -320,6 +320,7 @@ class LdapUser(models.User):
 
         group_user_filter = self.__define_group_user_filter()
 
+        log.info(superuser_group)
         log.info(group_user_filter)
 
         conn.search(search_base, group_user_filter, attributes=ALL_ATTRIBUTES)
