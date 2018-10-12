@@ -279,7 +279,7 @@ class LdapUser(models.User):
         return self.superuser
 
     def __define_custom_super_user_filter():
-        superuser_filter_attr = configuration.conf.get("ldap", "superuser_filter")
+        superuser_filter_attr = configuration.conf.get("ldap", "superuser_filter_attr")
         super_user_filter = "(&({0}))".format(superuser_filter_attr)
 
         return super_user_filter
