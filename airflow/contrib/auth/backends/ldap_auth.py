@@ -274,13 +274,9 @@ class LdapUser(models.User):
     def __define_group_user_filter(self):
         """ Define a custom ldap filter using our ldap internal and external user type"""
 
-        internal_user_type_filter = self.__define_custom_internal_user_type_filter()
-
-        internal_user_type_filter = self.__define_custom_external_user_type_filter()
-
         group_user_filter = "(|{0}{1})".format(
-            internal_user_type_filter,
-            internal_user_type_filter
+            self.__define_custom_internal_user_type_filter(),
+            self.__define_custom_external_user_type_filter()
         )
 
         return group_user_filter
