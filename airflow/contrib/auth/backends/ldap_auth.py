@@ -297,6 +297,7 @@ class LdapUser(models.User):
                                                                 group_internal_org_unit_attr,
                                                                 base_dn)
 
+
         return internal_user_type_filter
 
 
@@ -322,6 +323,8 @@ class LdapUser(models.User):
         superuser_group = configuration.conf.get("ldap", "superuser_group")
 
         group_user_filter = self.__define_group_user_filter()
+
+        log.info(group_user_filter)
 
         conn.search(search_base, group_user_filter, attributes=ALL_ATTRIBUTES)
         entries = conn.entries
