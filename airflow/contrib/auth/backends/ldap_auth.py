@@ -130,7 +130,7 @@ class LdapUser(models.User):
         self.ldap_groups = []
         self.ldap_custom_groups = []
 
-        owner_mode = configuration.conf.get("core", "owner_mode")
+        owner_mode = configuration.conf.get("webserver", "owner_mode")
 
         if owner_mode == "ldapgroup":
             # Load and cache superuser and data_profiler settings.
@@ -276,6 +276,8 @@ class LdapUser(models.User):
         return self.superuser
 
     def __define_group_user_filter(self):
+        """ Define a custom ldap filter using our ldap internal and external user type"""
+
         internal_user_type_filter = self.__define_custom_internal_user_type_filter()
 
         internal_user_type_filter = self.__define_custom_external_user_type_filter()
@@ -288,6 +290,7 @@ class LdapUser(models.User):
         return group_user_filter
 
     def __define_custom_internal_user_type_filter(self):
+        """ Define a custom ldap filter for the internal user type"""
 
         base_dn = configuration.conf.get("ldap", "basedn")
         group_user_name_attr = configuration.conf.get("ldap", "group_user_name_attr")
@@ -302,6 +305,7 @@ class LdapUser(models.User):
 
 
     def __define_custom_external_user_type_filter(self):
+        """Define a custom ldap filter for external user type"""
         base_dn = configuration.conf.get("ldap", "basedn")
         group_user_name_attr = configuration.conf.get("ldap", "group_user_name_attr")
         group_external_org_unit_attr = configuration.conf.get("ldap", "group_external_org_unit_attr")
@@ -314,6 +318,8 @@ class LdapUser(models.User):
         return external_user_type_filter
 
     def resolve_current_user_custom_group(self, conn):
+        """ Resolve current user group according to custom ldap filters"""
+
         search_base = configuration.conf.get("ldap", "basedn_group")
 
         superuser_group = configuration.conf.get("ldap", "superuser_group")
