@@ -27,4 +27,3 @@ Use the :class:`~airflow.operators.docker_operator.DockerOperator` to run
     :language: python
     :start-after: [START howto_operator_Docker]
     :end-before: [END howto_operator_Docker]
-
