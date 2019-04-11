@@ -202,11 +202,13 @@ class DockerOperator(BaseOperator):
         self.shm_size = shm_size
         if kwargs.get('xcom_push') is not None:
             raise AirflowException("'xcom_push' was deprecated, use 'BaseOperator.do_xcom_push' instead")
-        self.container_config = container_config or {"user": self.user, "working_dir": self.working_dir,
-                                                     "image": self.image}
-        self.host_config = host_config or {"shm_size": self.shm_size, "auto_remove": self.auto_remove,
-                                           "dns": self.dns, "dns_search": self.dns_search,
-                                           "mem_limit": self.mem_limit}
+        if not container_config:
+            self.container_config = {"user": self.user, "working_dir": self.working_dir,
+                                     "image": self.image}
+        if not host_config:
+            self.host_config = {"shm_size": self.shm_size, "auto_remove": self.auto_remove,
+                                "dns": self.dns, "dns_search": self.dns_search,
+                                "mem_limit": self.mem_limit}
 
         self.cli = None
         self.container = None
