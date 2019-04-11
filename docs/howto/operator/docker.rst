@@ -18,7 +18,7 @@
 .. _howto/operator:DockerOperator:
 
 DockerOperator
-============
+==============
 
 Use the :class:`~airflow.operators.docker_operator.DockerOperator` to run
 `Docker <https://docs.docker.com/get-started/>`__ containers.
@@ -28,5 +28,3 @@ Use the :class:`~airflow.operators.docker_operator.DockerOperator` to run
     :start-after: [START howto_operator_Docker]
     :end-before: [END howto_operator_Docker]
 
-Templating
-----------
