@@ -31,29 +31,47 @@ import ast
 class DockerOperator(BaseOperator):
     """
     Execute a command inside a docker container.
-
     A temporary directory is created on the host and
     mounted into a container to allow storing files
     that together exceed the default disk size of 10GB in a container.
     The path to the mounted directory can be accessed
     via the environment variable ``AIRFLOW_TMP_DIR``.
-
     If a login to a private registry is required prior to pulling the image, a
     Docker connection needs to be configured in Airflow and the connection ID
     be provided with the parameter ``docker_conn_id``.
-
+    :param image: Docker image from which to create the container.
+        If image tag is omitted, "latest" will be used.
+    :type image: str
     :param api_version: Remote API version. Set to ``auto`` to automatically
         detect the server's version.
     :type api_version: str
+    :param auto_remove: Auto-removal of the container on daemon side when the
+        container's process exits.
+        The default is False.
+    :type auto_remove: bool
+    :param command: Command to be run in the container. (templated)
+    :type command: str or list
     :param cpus: Number of CPUs to assign to the container.
         This value gets multiplied with 1024. See
         https://docs.docker.com/engine/reference/run/#cpu-share-constraint
     :type cpus: float
+    :param dns: Docker custom DNS servers
+    :type dns: list[str]
+    :param dns_search: Docker custom DNS search domain
+    :type dns_search: list[str]
     :param docker_url: URL of the host running the docker daemon.
         Default is unix://var/run/docker.sock
     :type docker_url: str
+    :param environment: Environment variables to set in the container. (templated)
+    :type environment: dict
     :param force_pull: Pull the docker image on every run. Default is False.
     :type force_pull: bool
+    :param mem_limit: Maximum amount of memory the container can use.
+        Either a float value, which represents the limit in bytes,
+        or a string like ``128m`` or ``1g``.
+    :type mem_limit: float or str
+    :param network_mode: Network mode for the container.
+    :type network_mode: str
     :param tls_ca_cert: Path to a PEM-encoded certificate authority
         to secure the docker connection.
     :type tls_ca_cert: str
@@ -72,20 +90,27 @@ class DockerOperator(BaseOperator):
         The path is also made available via the environment variable
         ``AIRFLOW_TMP_DIR`` inside the container.
     :type tmp_dir: str
-    :param xcom_push: Does the stdout will be pushed to the next step using XCom.
-        The default is False.
-    :type xcom_push: bool
+    :param user: Default user inside the docker container.
+    :type user: int or str
+    :param volumes: List of volumes to mount into the container, e.g.
+        ``['/host/path:/container/path', '/host/path2:/container/path2:ro']``.
+    :param working_dir: Working directory to
+        set on the container (equivalent to the -w switch the docker client)
+    :type working_dir: str
     :param xcom_all: Push all the stdout or just the last line.
         The default is False (last line).
     :type xcom_all: bool
     :param docker_conn_id: ID of the Airflow connection to use
     :type docker_conn_id: str
-    :param container_config: a json that define all the config of the container .
-    :type container_config: json object
-        ** Use of container_config**
-        Takes a json object only, you can provide all the supported arguments in
+    :param shm_size: Size of ``/dev/shm`` in bytes. The size must be
+        greater than 0. If omitted uses system default.
+    :type shm_size: int
+    :param container_config: a dict that define all the config of the container .
+    :type container_config: dict
+        Takes a dictionary only, you can provide all the supported arguments in
         create_container method. Check create_container method documentation for
-        more details: https://goo.gl/u5PQqE
+        more details: https://docker-py.readthedocs.io/en/latest/api.html#docker.api.
+        container.ContainerApiMixin.create_container
         Note: the image ``image`` attribute is mandatory.
 
         .. code-block:: python
@@ -95,12 +120,12 @@ class DockerOperator(BaseOperator):
                                 'environment':{'SOME_ENV_VAR':'SOME_VALUE'},
                                 'working_dir':'/container/some_path'
             }
-    :param host_config: a json that define all host config of the container
-    :type host_config: json object
-        **Use of host_config**
-        Takes a json object only, you can provide all the supported arguments in
+    :param host_config: a dict that define all host config of the container
+    :type host_config: dict
+        Takes a dictionary only, you can provide all the supported arguments in
         create_host_config method. Check create_host_config method documentation for
-        more details: https://goo.gl/65NcDi
+        more details: https://docker-py.readthedocs.io/en/latest/api.html#docker.api.
+        container.ContainerApiMixin.create_host_config
 
         .. code-block:: python
 
@@ -120,19 +145,30 @@ class DockerOperator(BaseOperator):
     @apply_defaults
     def __init__(
             self,
+            image=None,
             api_version=None,
+            command=None,
             cpus=1.0,
             docker_url='unix://var/run/docker.sock',
+            environment=None,
             force_pull=False,
+            mem_limit=None,
+            network_mode=None,
             tls_ca_cert=None,
             tls_client_cert=None,
             tls_client_key=None,
             tls_hostname=None,
             tls_ssl_version=None,
             tmp_dir='/tmp/airflow',
-            xcom_push=False,
+            user=None,
+            volumes=None,
+            working_dir=None,
             xcom_all=False,
             docker_conn_id=None,
+            dns=None,
+            dns_search=None,
+            auto_remove=False,
+            shm_size=None,
             container_config=None,
             host_config=None,
 
@@ -141,20 +177,36 @@ class DockerOperator(BaseOperator):
 
         super(DockerOperator, self).__init__(*args, **kwargs)
         self.api_version = api_version
+        self.auto_remove = auto_remove
+        self.command = command
         self.cpus = cpus
+        self.dns = dns
+        self.dns_search = dns_search
         self.docker_url = docker_url
+        self.environment = environment or {}
         self.force_pull = force_pull
+        self.image = image
+        self.mem_limit = mem_limit
+        self.network_mode = network_mode
         self.tls_ca_cert = tls_ca_cert
         self.tls_client_cert = tls_client_cert
         self.tls_client_key = tls_client_key
         self.tls_hostname = tls_hostname
         self.tls_ssl_version = tls_ssl_version
         self.tmp_dir = tmp_dir
-        self.xcom_push_flag = xcom_push
+        self.user = user
+        self.volumes = volumes or []
+        self.working_dir = working_dir
         self.xcom_all = xcom_all
         self.docker_conn_id = docker_conn_id
-        self.container_config = container_config or {}
-        self.host_config = host_config or {}
+        self.shm_size = shm_size
+        if kwargs.get('xcom_push') is not None:
+            raise AirflowException("'xcom_push' was deprecated, use 'BaseOperator.do_xcom_push' instead")
+        self.container_config = container_config or {"user": self.user, "working_dir": self.working_dir,
+                                                     "image": self.image}
+        self.host_config = host_config or {"shm_size": self.shm_size, "auto_remove": self.auto_remove,
+                                           "dns": self.dns, "dns_search": self.dns_search,
+                                           "mem_limit": self.mem_limit}
 
         self.cli = None
         self.container = None
@@ -166,10 +218,25 @@ class DockerOperator(BaseOperator):
         argument to :py:meth:`create_container`.
         :return: None
         """
+        if "dns_search" not in self.host_config and self.dns_search is not None:
+            self.host_config["dns_search"] = self.dns_search
+        if "mem_limit" not in self.host_config and self.mem_limit is not None:
+            self.host_config["mem_limit"] = self.mem_limit
+        if "dns" not in self.host_config and self.dns is not None:
+            self.host_config["dns"] = self.dns
+        if "auto_remove" not in self.host_config and not self.auto_remove:
+            self.host_config["auto_remove"] = self.auto_remove
+        if "shm_size" not in self.host_config and self.shm_size is not None:
+            self.host_config["shm_size"] = self.shm_size
+        if "network_mode" not in self.host_config and self.network_mode is not None:
+            self.host_config["network_mode"] = self.network_mode
         if 'cpu_shares' not in self.host_config:
             self.host_config['cpu_shares'] = int(round(self.cpus * 1024))
         if 'binds' not in self.host_config:
             self.host_config["binds"] = []
+        if len(self.volumes) != 0:
+            for element in self.volumes:
+                self.host_config['binds'].append(element)
         if 'volumes' in self.host_config:
             for element in self.host_config['volumes']:
                 self.host_config['binds'].append(element)
@@ -182,11 +249,22 @@ class DockerOperator(BaseOperator):
         argument :py:meth:`create_container`.
         :return: None
         """
-        if 'image' not in self.container_config:
+        self.container_config['user'] = self.user
+        if "working_dir" not in self.container_config and self.working_dir is not None:
+            self.container_config['working_dir'] = self.working_dir
+        if 'image' not in self.container_config and self.image is None:
             raise AirflowException('No docker image provided')
-
+        if self.image is not None:
+            self.container_config['image'] = self.image
+        if self.command is not None and self.command.strip().find('[') == 0:
+            commands = ast.literal_eval(self.command)
+            self.container_config['command'] = commands
+        elif self.command is not None:
+            self.container_config['command'] = self.command
         if 'environment' not in self.container_config:
             self.container_config['environment'] = {}
+        if self.environment:
+            self.container_config['environment'] = self.environment
         if 'command' in self.container_config and \
                 self.container_config['command'] is not None \
                 and self.container_config['command'].strip().find('[') == 0:
@@ -244,9 +322,10 @@ class DockerOperator(BaseOperator):
             if result['StatusCode'] != 0:
                 raise AirflowException('docker container failed: ' + repr(result))
 
-            if self.xcom_push_flag:
+            # duplicated conditional logic because of expensive operation
+            if self.do_xcom_push:
                 return self.cli.logs(container=self.container['Id']) \
-                    if self.xcom_all else str(line)
+                    if self.xcom_all else line.encode('utf-8')
 
     def on_kill(self):
         if self.cli is not None:
