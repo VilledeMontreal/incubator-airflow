@@ -14,3 +14,19 @@
     KIND, either express or implied.  See the License for the
     specific language governing permissions and limitations
     under the License.
+
+.. _howto/operator:DockerOperator:
+
+DockerOperator
+============
+
+Use the :class:`~airflow.operators.docker_operator.DockerOperator` to run
+`Docker <https://docs.docker.com/get-started/>`__ containers.
+
+.. exampleinclude:: ../../../airflow/example_dags/example_docker_operator.py
+    :language: python
+    :start-after: [START howto_operator_Docker]
+    :end-before: [END howto_operator_Docker]
+
+Templating
+----------

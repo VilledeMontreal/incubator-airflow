@@ -33,6 +33,20 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
+host_config = {'binds': ['/host/path:/container/path'],
+                       'network_mode': 'bridge',
+                       'shm_size': 1000,
+                       'mem_limit': None,
+                       'auto_remove': False,
+                       'dns': None,
+                       'dns_search': None
+                       }
+container_config = {'image': 'ubuntu:latest',
+                    'working_dir': '/container/path',
+                    'command': 'echo Hello world!',
+                    'environment': {'UNIT': 'TEST'}
+                    }
+
 dag = DAG(
     'docker_sample', default_args=default_args, schedule_interval=timedelta(minutes=10))
 
@@ -47,16 +61,25 @@ t2 = BashOperator(
     retries=3,
     dag=dag)
 
+# [START howto_operator_Docker]
 t3 = DockerOperator(api_version='1.19',
     docker_url='tcp://localhost:2375', #Set your docker URL
     command='/bin/sleep 30',
     image='centos:latest',
     network_mode='bridge',
-    task_id='docker_op_tester',
+    task_id='docker_op_tester1',
     dag=dag)
 
+# Or 2end Option
 
-t4 = BashOperator(
+t4 = DockerOperator(api_version='1.19',
+    task_id='docker_op_tester2',
+    container_config=container_config,
+    host_config=host_config
+    dag=dag)
+# [END howto_operator_Docker]
+
+t5 = BashOperator(
     task_id='print_hello',
     bash_command='echo "hello world!!!"',
     dag=dag)
@@ -65,4 +88,5 @@ t4 = BashOperator(
 t1.set_downstream(t2)
 t1.set_downstream(t3)
 t3.set_downstream(t4)
+t4.set_downstream(t5)
 """
